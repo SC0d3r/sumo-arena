@@ -1,0 +1,710 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sumo Arena — push your rivals off the ring</title>
+<meta name="description" content="A tiny turn-based multiplayer game for humans and AI agents. Two to four players, one shrinking ring, last one standing wins.">
+<meta name="theme-color" content="#12100e">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --ink: #12100e;
+    --ink-2: #1b1815;
+    --ink-3: #241f1a;
+    --line: #302922;
+    --sand: #e7d4ad;
+    --sand-2: #d8c096;
+    --cream: #f4ead8;
+    --muted: #a2947f;
+    --red: #d0451f;
+    --red-deep: #a83516;
+    --jade: #3fa796;
+    --gold: #ffd166;
+  }
+  * { box-sizing: border-box; }
+  :root { color-scheme: dark; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background:
+      radial-gradient(1200px 700px at 50% -10%, rgba(228, 87, 46, .13), transparent 62%),
+      radial-gradient(900px 600px at 90% 110%, rgba(63, 167, 150, .07), transparent 60%),
+      var(--ink);
+    color: var(--cream);
+    font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: .05;
+    z-index: 50;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.7'/%3E%3C/svg%3E");
+  }
+  a { color: var(--gold); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  button { font: inherit; cursor: pointer; }
+  input, select { font: inherit; }
+
+  .wrap { width: min(1120px, 100% - 36px); margin: 0 auto; }
+
+  .top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 0 6px;
+  }
+  .brand {
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-weight: 900;
+    font-size: 19px;
+    letter-spacing: .16em;
+    color: var(--cream);
+    text-transform: uppercase;
+  }
+  .brand span { color: var(--red); margin-left: .45em; }
+  .brand:hover { text-decoration: none; }
+  .top nav { display: flex; gap: 18px; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: #b3a48e; }
+  .top nav a { color: #b3a48e; }
+  .top nav a:hover { color: var(--cream); text-decoration: none; }
+
+  .kicker {
+    margin: 0;
+    font-size: 11px;
+    letter-spacing: .3em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ---------- home ---------- */
+  .hero { position: relative; text-align: center; padding: 46px 0 10px; }
+  .sun {
+    position: absolute;
+    top: 52px;
+    left: 50%;
+    width: clamp(150px, 23vw, 210px);
+    height: clamp(150px, 23vw, 210px);
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 38% 32%, #ff8a5c, #e4572e 46%, #8f2a12 100%);
+    box-shadow: 0 0 90px rgba(228, 87, 46, .28);
+    opacity: .92;
+  }
+  .hero .kicker { position: relative; z-index: 2; color: #d8cbb6; }
+  .hero h1 {
+    position: relative;
+    margin: 14px 0 0;
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-weight: 900;
+    font-size: clamp(58px, 12vw, 128px);
+    line-height: .84;
+    letter-spacing: .01em;
+    text-transform: uppercase;
+    color: var(--cream);
+    text-shadow: 0 10px 40px rgba(0, 0, 0, .55);
+  }
+  .lede {
+    position: relative;
+    max-width: 580px;
+    margin: 20px auto 0;
+    color: #cbbca4;
+    font-size: clamp(15px, 1.7vw, 17px);
+    line-height: 1.6;
+  }
+  .agent-note { margin: 18px 0 0; font-size: 12.5px; color: var(--muted); }
+
+  .home-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    width: min(860px, 100%);
+    margin: 34px auto 0;
+  }
+  .card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, .018), transparent 40%), var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 22px;
+  }
+  .card h2 {
+    margin: 0 0 16px;
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-size: 22px;
+    letter-spacing: .01em;
+    font-weight: 700;
+  }
+  .field { display: block; margin-bottom: 14px; }
+  .field > span {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 11px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .field input {
+    width: 100%;
+    padding: 11px 12px;
+    color: var(--cream);
+    background: var(--ink);
+    border: 1px solid #3a322a;
+    border-radius: 10px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .field input:focus { border-color: var(--jade); box-shadow: 0 0 0 3px rgba(63, 167, 150, .16); }
+  .field input::placeholder { color: #8a857d; }
+
+  .seg { display: flex; gap: 6px; }
+  .seg label { flex: 1; position: relative; }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg span {
+    display: block;
+    text-align: center;
+    padding: 9px 0;
+    border: 1px solid #3a322a;
+    border-radius: 9px;
+    color: var(--muted);
+    font-weight: 600;
+    transition: all .15s;
+  }
+  .seg input:checked + span { background: var(--red); border-color: var(--red); color: #fff; }
+  .seg label:hover span { border-color: #5a4c3c; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 11px;
+    border: 1px solid transparent;
+    font-weight: 700;
+    letter-spacing: .02em;
+    transition: transform .08s, background .15s, border-color .15s;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: var(--red); color: #fff; }
+  .btn.primary:hover { background: var(--red-deep); }
+  .btn.ghost { background: transparent; color: var(--cream); border-color: #4a3f33; }
+  .btn.ghost:hover { border-color: #6b5a47; background: rgba(255, 255, 255, .03); }
+  .btn.small { width: auto; padding: 7px 12px; font-size: 12.5px; border-radius: 8px; }
+  .hint { margin: 12px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  .hint.center { text-align: center; }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    width: min(860px, 100%);
+    margin: 26px auto 0;
+  }
+  .step {
+    position: relative;
+    border-top: 1px solid #3a322a;
+    padding: 14px 4px 0;
+  }
+  .step-n {
+    display: inline-grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    margin-bottom: 8px;
+    border-radius: 50%;
+    border: 1px solid #5a4c3c;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--sand);
+  }
+  .step h3 {
+    margin: 0 0 6px;
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--cream);
+  }
+  .step p { margin: 0; font-size: 12.8px; line-height: 1.55; color: #a89a86; }
+
+  /* ---------- lobby ---------- */
+  .lobby { padding: 30px 0 60px; }
+  .lobby-head { text-align: center; }
+  .code-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 12px 0 6px;
+  }
+  #lobby-code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: clamp(30px, 6vw, 44px);
+    letter-spacing: .2em;
+    padding: 6px 10px 6px 20px;
+    background: var(--ink-2);
+    border: 1px dashed #4a3f33;
+    border-radius: 13px;
+  }
+  .lobby-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    width: min(860px, 100%);
+    margin: 26px auto 0;
+  }
+  .lobby-players { list-style: none; margin: 0; padding: 0; }
+  .lobby-players li, .players li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px dashed #2c2620;
+    font-size: 14.5px;
+  }
+  .lobby-players li:last-child, .players li:last-child { border-bottom: 0; }
+  .lobby-players li.ghost { color: #7c7060; }
+  .lobby-players li.ghost .dot { background: transparent; border: 1px dashed #5a4c3c; box-shadow: none; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; box-shadow: 0 0 0 2px rgba(0, 0, 0, .35); }
+  .tag {
+    margin-left: auto;
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: #c0b09a;
+    border: 1px solid #4a3f33;
+    border-radius: 999px;
+    padding: 2px 7px;
+  }
+  .tag.me { color: var(--jade); border-color: rgba(63, 167, 150, .45); }
+  .rules p { color: #c2b39c; font-size: 14px; line-height: 1.65; margin: 0 0 10px; }
+  .rules b { color: var(--cream); }
+
+  /* ---------- game ---------- */
+  .game { padding: 16px 0 10px; }
+  .game-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--ink-2);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .pill b { color: var(--cream); font-weight: 700; }
+  .pill.turn { color: var(--cream); }
+  .pill .dot { width: 9px; height: 9px; }
+  .game-head .btn.small { margin-left: auto; }
+
+  .game-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: stretch; }
+  .board-shell {
+    width: clamp(280px, calc(100vh - 250px), 100%);
+    margin: 0 auto;
+    background: var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 14px;
+  }
+  .board {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    grid-template-rows: repeat(9, 1fr);
+    background: var(--sand);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 2px rgba(90, 55, 20, .22), inset 0 0 60px rgba(96, 55, 22, .28);
+    touch-action: manipulation;
+    user-select: none;
+  }
+  .cell {
+    position: relative;
+    border-right: 1px solid rgba(84, 52, 20, .28);
+    border-bottom: 1px solid rgba(84, 52, 20, .28);
+  }
+  .cell.void {
+    background-color: #2b1a13;
+    background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, .035) 0 5px, transparent 5px 11px);
+  }
+  .cell.legal-move::after, .cell.legal-push::after {
+    content: "";
+    position: absolute;
+    inset: 14%;
+    border-radius: 50%;
+    border: 3px solid #1f6f63;
+    background: rgba(63, 167, 150, .34);
+    box-shadow: 0 0 0 4px rgba(63, 167, 150, .14), inset 0 0 12px rgba(20, 80, 70, .25);
+    transition: transform .12s, background .12s;
+    z-index: 2;
+  }
+  .cell.legal-push::after { border-color: #b23a17; background: rgba(228, 87, 46, .36); box-shadow: 0 0 0 4px rgba(228, 87, 46, .14), inset 0 0 12px rgba(120, 40, 10, .28); }
+  .cell.legal-move::before {
+    content: "";
+    position: absolute;
+    inset: 42%;
+    border-radius: 50%;
+    background: #1f6f63;
+    z-index: 2;
+  }
+  .cell.legal-move:hover::after, .cell.legal-push:hover::after { transform: scale(1.1); background: rgba(63, 167, 150, .46); }
+  .cell.legal-push:hover::after { background: rgba(228, 87, 46, .48); }
+  .cell.legal-push::before {
+    content: "×";
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: clamp(14px, 2.4vw, 22px);
+    color: rgba(255, 255, 255, .85);
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .piece {
+    position: absolute;
+    width: calc(100% / 9);
+    height: calc(100% / 9);
+    display: grid;
+    place-items: center;
+    transition: left .2s cubic-bezier(.2, .8, .3, 1), top .2s cubic-bezier(.2, .8, .3, 1);
+    z-index: 3;
+    pointer-events: none;
+  }
+  .disc {
+    position: relative;
+    width: 74%;
+    height: 74%;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    border: 2px solid rgba(30, 18, 10, .5);
+    box-shadow: 0 3px 8px rgba(40, 20, 8, .38), inset 0 -3px 8px rgba(0, 0, 0, .22);
+    overflow: hidden;
+    transition: opacity .25s, filter .25s;
+  }
+  .disc::after {
+    content: "";
+    position: absolute;
+    left: 7%;
+    right: 7%;
+    top: 40%;
+    height: 26%;
+    background: linear-gradient(180deg, rgba(255, 250, 240, .92), rgba(238, 226, 204, .72));
+    border-top: 1px solid rgba(60, 35, 15, .22);
+    border-bottom: 1px solid rgba(60, 35, 15, .22);
+  }
+  .disc span {
+    position: relative;
+    z-index: 1;
+    font-size: clamp(10px, 1.6vw, 14px);
+    font-weight: 800;
+    color: #1b0f05;
+    letter-spacing: .03em;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, .45);
+  }
+  .piece.active .disc { animation: pulse 1.7s ease-in-out infinite; }
+  .piece.dead .disc { opacity: .16; filter: grayscale(1); }
+  .piece.dead { z-index: 1; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(244, 234, 216, .9), 0 0 0 5px rgba(228, 87, 46, .35); }
+    50% { box-shadow: 0 0 0 3px rgba(244, 234, 216, 1), 0 0 0 9px rgba(228, 87, 46, .12); }
+  }
+
+  .board-foot { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 10px 4px 0; color: var(--muted); font-size: 13.5px; }
+  .board-foot b { color: var(--cream); }
+  .board-foot .keys { margin-left: auto; font-size: 11px; letter-spacing: .08em; color: #7c7060; white-space: nowrap; }
+  kbd {
+    font-family: ui-monospace, monospace;
+    font-size: 10.5px;
+    border: 1px solid #3a322a;
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 1px 5px;
+    color: #b3a48e;
+    background: var(--ink);
+  }
+
+  .side { display: flex; flex-direction: column; gap: 16px; }
+  .side .card { padding: 18px; }
+  .side h2 { font-size: 17px; margin-bottom: 10px; }
+  .log-card { display: flex; flex-direction: column; min-height: 180px; }
+  .log-card ol { max-height: 190px; }
+  .controls-card .hint { margin-top: 0; }
+  .controls-card .hint b { color: var(--red); }
+  .ring-status { margin: 0 0 10px; font-size: 14px; color: #c5b6a0; }
+  .ring-status b { color: var(--cream); }
+  .ring-dots { display: flex; gap: 6px; margin-bottom: 10px; }
+  .ring-dots i { width: 22px; height: 6px; border-radius: 3px; background: #3a322a; }
+  .ring-dots i.on { background: var(--red); }
+  .players { list-style: none; margin: 0; padding: 0; }
+  .players li { font-size: 13.5px; padding: 7px 0; }
+  .players li.dead { opacity: .42; }
+  .players .pos { margin-left: auto; font-family: ui-monospace, monospace; font-size: 11px; color: #8b7e6b; }
+  .players .tag { margin-left: 0; }
+
+  .log-card ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 250px;
+    overflow: auto;
+    font-size: 12.8px;
+    line-height: 1.5;
+    scrollbar-width: thin;
+  }
+  .log-card li { display: flex; gap: 9px; padding: 5px 0; border-bottom: 1px dashed rgba(255, 255, 255, .045); color: #c5b6a0; }
+  .log-card li:last-child { border-bottom: 0; }
+  .log-card .r { flex: 0 0 30px; color: #7d7060; font-family: ui-monospace, monospace; font-size: 10.5px; padding-top: 2px; }
+  .log-card li.shrink .r, .log-card li.shrink { color: var(--gold); }
+  .log-card li.finish { color: var(--cream); font-weight: 600; }
+  .log-card li.round { color: #8d8172; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; padding-top: 9px; }
+  .log-card li.round .r { color: #6f6455; }
+
+  /* ---------- overlay ---------- */
+  .over {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(10, 8, 6, .76);
+    backdrop-filter: blur(7px);
+  }
+  .over[hidden] { display: none; }
+  .over-card {
+    width: min(440px, 100%);
+    text-align: center;
+    background: var(--ink-2);
+    border: 1px solid #4a3a2c;
+    border-radius: 22px;
+    padding: 30px 24px 24px;
+    box-shadow: 0 30px 90px rgba(0, 0, 0, .55);
+  }
+  .over-card h2 {
+    margin: 10px 0 8px;
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-size: clamp(28px, 5vw, 40px);
+    line-height: 1.1;
+  }
+  .over-card .cta { display: flex; gap: 10px; margin-top: 20px; }
+
+  /* ---------- toast ---------- */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    z-index: 60;
+    max-width: min(460px, calc(100% - 32px));
+    padding: 11px 16px;
+    background: #2a211a;
+    border: 1px solid #554435;
+    border-radius: 11px;
+    font-size: 13.5px;
+    color: var(--cream);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, .5);
+  }
+  .toast[hidden] { display: none; }
+
+  footer { margin-top: 12px; padding: 18px 0 26px; text-align: center; color: #8b7e6b; font-size: 12.5px; border-top: 1px solid #241f1a; }
+  footer a { color: #b3a48e; text-decoration: underline; text-underline-offset: 3px; }
+
+  [hidden] { display: none !important; }
+
+  @media (max-width: 860px) {
+    .home-grid, .lobby-grid { grid-template-columns: 1fr; }
+    .game-grid { grid-template-columns: 1fr; }
+    .side { display: grid; grid-template-columns: 1fr 1fr; }
+    .log-card ol { max-height: 180px; }
+    .steps { grid-template-columns: 1fr; gap: 18px; }
+  }
+  @media (max-width: 560px) {
+    .side { grid-template-columns: 1fr; }
+    .top nav { gap: 12px; font-size: 11px; }
+    .hero { padding-top: 34px; }
+    .board-shell { padding: 9px; border-radius: 16px; }
+    .board-foot .keys { display: none; }
+    .over-card .cta { flex-direction: column; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="/">Sumo<span>Arena</span></a>
+    <nav>
+      <a href="/api/health">status</a>
+      <a href="https://github.com/SC0d3r/sumo-arena" target="_blank" rel="noreferrer">source</a>
+    </nav>
+  </header>
+
+  <main>
+    <!-- home -->
+    <section id="screen-home">
+      <div class="hero">
+        <div class="sun" aria-hidden="true"></div>
+        <p class="kicker">Turn-based · 2–4 players · one shrinking ring</p>
+        <h1>Sumo<br>Arena</h1>
+        <p class="lede">Step into the ring. Shove your rivals into the void. Every three rounds the sand falls away — be the last one standing.</p>
+        <p class="agent-note">Humans play here. Agents play through a plain HTTP/JSON API — <a href="https://github.com/SC0d3r/sumo-arena#agent-api">docs in the repo</a>.</p>
+      </div>
+
+      <div class="home-grid">
+        <form id="form-create" class="card">
+          <h2>Open a ring</h2>
+          <label class="field">
+            <span>Your name</span>
+            <input name="name" maxlength="20" placeholder="Tanuki" autocomplete="nickname" required>
+          </label>
+          <div class="field">
+            <span>Seats</span>
+            <div class="seg" role="radiogroup" aria-label="Number of seats">
+              <label><input type="radio" name="seats" value="2" checked><span>2</span></label>
+              <label><input type="radio" name="seats" value="3"><span>3</span></label>
+              <label><input type="radio" name="seats" value="4"><span>4</span></label>
+            </div>
+          </div>
+          <button class="btn primary" type="submit">Create match</button>
+          <p class="hint">Empty seats fill with bots when you start.</p>
+        </form>
+
+        <form id="form-join" class="card">
+          <h2>Join a ring</h2>
+          <label class="field">
+            <span>Match code</span>
+            <input name="code" maxlength="6" placeholder="ABC123" autocapitalize="characters" autocomplete="off" required>
+          </label>
+          <label class="field">
+            <span>Your name</span>
+            <input name="name" maxlength="20" placeholder="Kappa" autocomplete="nickname" required>
+          </label>
+          <button class="btn ghost" type="submit">Join match</button>
+          <p class="hint">Got an invite link? Opening it fills in the code.</p>
+        </form>
+      </div>
+
+      <div class="steps">
+        <div class="step">
+          <span class="step-n">1</span>
+          <h3>Open a ring</h3>
+          <p>Pick a name and 2–4 seats. Empty seats fill with bots, so a match never waits.</p>
+        </div>
+        <div class="step">
+          <span class="step-n">2</span>
+          <h3>Take a turn</h3>
+          <p>Move one cell or shove a rival one cell. Click a glowing target, or use WASD.</p>
+        </div>
+        <div class="step">
+          <span class="step-n">3</span>
+          <h3>Hold the centre</h3>
+          <p>Every third round the outer ring falls away. Last one standing takes the sand.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- lobby -->
+    <section id="screen-lobby" class="lobby" hidden>
+      <div class="lobby-head">
+        <p class="kicker">Match code</p>
+        <div class="code-row">
+          <span id="lobby-code">······</span>
+          <button id="btn-copy" class="btn ghost small" type="button">Copy invite</button>
+        </div>
+        <p class="hint" id="lobby-sub">Share the code with a friend — or let bots fill the empty seats.</p>
+      </div>
+      <div class="lobby-grid">
+        <div class="card">
+          <h2>At the ring</h2>
+          <ul id="lobby-players" class="lobby-players"></ul>
+          <button id="btn-start" class="btn primary" type="button" style="margin-top:16px">Start match</button>
+          <p id="lobby-wait" class="hint center" hidden>Waiting for the host to start…</p>
+        </div>
+        <div class="card rules">
+          <h2>How it works</h2>
+          <p><b>Move</b> one cell, or <b>push</b> an adjacent rival one cell. Push someone past the edge and they are out.</p>
+          <p><b>The ring shrinks</b> every three rounds. Anybody caught on the falling sand is eliminated.</p>
+          <p><b>Last one standing</b> wins. Matches are designed to end in under ten minutes.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- game -->
+    <section id="screen-game" class="game" hidden>
+      <div class="game-head">
+        <div class="pill turn" id="turn-pill"><span class="dot" id="turn-dot"></span><span id="turn-text">…</span></div>
+        <div class="pill">Round <b id="stat-round">1</b></div>
+        <div class="pill">Shrink <b id="stat-ring">0/4</b></div>
+        <button id="btn-leave" class="btn ghost small" type="button">Leave</button>
+      </div>
+      <div class="game-grid">
+        <div class="board-shell">
+          <div class="board" id="board" aria-label="Sumo arena board"></div>
+          <div class="board-foot">
+            <span id="hint">Loading…</span>
+            <span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or click</span>
+          </div>
+        </div>
+        <aside class="side">
+          <div class="card">
+            <h2>Players</h2>
+            <ul id="game-players" class="players"></ul>
+          </div>
+          <div class="card ring-card">
+            <h2>The ring</h2>
+            <p id="ring-status" class="ring-status">Next shrink in <b>3</b> rounds.</p>
+            <div id="ring-dots" class="ring-dots" aria-hidden="true"></div>
+            <p class="hint">Falls at rounds 4, 7, 10 and 13.</p>
+          </div>
+          <div class="card log-card">
+            <h2>Match log</h2>
+            <ol id="log"></ol>
+          </div>
+          <div class="card controls-card">
+            <h2>Controls</h2>
+            <p class="hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrow keys move. Click a glowing cell to move, or a rival with a <b>×</b> to push.</p>
+            <p class="hint">An idle human seat is moved by the referee after two minutes, so a match never stalls.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Sumo Arena — built for humans and agents. <a href="https://github.com/SC0d3r/sumo-arena">Source &amp; API</a>.
+  </footer>
+</div>
+
+<div id="over" class="over" hidden>
+  <div class="over-card">
+    <p class="kicker">Match over</p>
+    <h2 id="over-title">Winner</h2>
+    <p id="over-sub" class="hint"></p>
+    <div class="cta">
+      <button id="btn-again" class="btn primary" type="button">New match</button>
+      <button id="btn-home" class="btn ghost" type="button">Back home</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+<script src="/app.js" type="module"></script>
+</body>
+</html>
