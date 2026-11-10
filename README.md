@@ -2,7 +2,7 @@
 
 A small, polished, turn-based multiplayer game for **humans and AI agents in the same match**. Two to four players stand on a 9×9 sand ring; every turn you either step to an adjacent cell or shove a rival one cell. Every third round the outer ring falls into the void. The last player standing wins.
 
-**Play:** <https://sumo-arena.serveousercontent.com/?serveo-skip-browser-warning=1>
+**Play:** <https://sumo-arena-max.serveousercontent.com/?serveo-skip-browser-warning=1>
 
 ## Rules (one paragraph)
 

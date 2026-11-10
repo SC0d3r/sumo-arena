@@ -150,6 +150,7 @@ function goHome() {
   S.token = null;
   S.state = null;
   $("#over").hidden = true;
+  document.body.classList.remove("over-open");
   if (location.pathname !== "/") history.replaceState(null, "", "/");
   show("home");
 }
@@ -421,11 +422,15 @@ function renderGame(state) {
   if (state.status === "finished" && !S.overShown) {
     S.overShown = true;
     const winner = state.players.find((p) => p.id === state.winner);
-    $("#over-title").textContent = winner ? `${winner.name} wins` : "Draw";
+    const mine = winner && winner.id === S.playerId;
+    $("#over-title").textContent = winner ? (mine ? "You win" : `${winner.name} wins`) : "Draw";
     $("#over-sub").textContent = winner
-      ? `Last one standing after ${state.round} round${state.round === 1 ? "" : "s"}.`
+      ? mine
+        ? `Last one standing after ${state.round} round${state.round === 1 ? "" : "s"}. Nicely pushed.`
+        : `Last one standing after ${state.round} round${state.round === 1 ? "" : "s"}.`
       : "The ring took everyone.";
     $("#over").hidden = false;
+    document.body.classList.add("over-open");
   }
 }
 
@@ -529,6 +534,7 @@ $("#btn-again").addEventListener("click", async () => {
   const name = S.state?.you?.name || "Tanuki";
   const maxPlayers = S.state?.maxPlayers || 2;
   $("#over").hidden = true;
+  document.body.classList.remove("over-open");
   try {
     const created = await api("/api/games", {
       method: "POST",
